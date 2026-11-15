@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Live Scoreboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        .led-font { font-family: 'Share Tech Mono', monospace; text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.4); }
+        .title-font { font-family: 'Orbitron', sans-serif; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col select-none bg-gray-900 text-white">
+
+    <!-- Top Header Bar -->
+    <header class="absolute top-0 left-0 w-full z-20 flex justify-between items-center px-4 md:px-6 py-2 bg-black/60 backdrop-blur-md border-b border-white/10">
+        <div class="flex items-center space-x-2">
+            <span id="sync-badge" class="px-2.5 py-0.5 bg-red-600 text-white text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-full animate-pulse">LIVE API</span>
+            <span id="stadium-display" class="title-font text-xs md:text-base font-bold tracking-widest text-gray-200 truncate max-w-[140px] md:max-w-none">STADIUM</span>
+        </div>
+        
+        <div class="flex items-center space-x-3 bg-black/70 px-3 py-1 rounded-full border border-white/10">
+            <span id="quarter-display" class="title-font text-[10px] md:text-xs text-yellow-400 font-bold uppercase">4TH QTR</span>
+            <div class="h-3 w-[1px] bg-white/20"></div>
+            <span id="game-clock" class="led-font text-base md:text-xl text-white font-bold">00:00</span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleWakeLock()" id="wakelock-btn" class="px-2 py-1 bg-yellow-600/30 border border-yellow-500/50 rounded-full text-[10px] md:text-xs font-bold text-yellow-300 title-font">💡 WAKE OFF</button>
+            <button onclick="toggleAudio()" id="audio-btn" class="px-2 py-1 bg-red-600/30 border border-red-500/50 rounded-full text-[10px] md:text-xs font-bold text-red-300 title-font">🔇 VOICE OFF</button>
+            <a href="#manual" onclick="switchView('manual')" class="px-2.5 py-1 bg-blue-600/40 border border-blue-500/50 rounded-full text-[10px] md:text-xs font-bold text-blue-300 title-font">🎮 CONTROLLER</a>
+            <button onclick="openSettings()" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20">⚙️</button>
+        </div>
+    </header>
+
+    <!-- Scoreboard View (Default) -->
+    <main id="view-display" class="flex-1 w-full h-full flex flex-col md:flex-row pt-12 pb-8">
+        <!-- Away Side -->
+        <div id="away-side" class="flex-1 h-1/2 md:h-full bg-[#002E5D] flex flex-col justify-between p-4 md:p-8 relative overflow-hidden transition-colors duration-500">
+            <div id="away-bg-watermark" class="absolute -bottom-10 -left-10 text-white/5 title-font text-[12rem] md:text-[24rem] font-black pointer-events-none">AWAY</div>
+            <div class="flex justify-between items-center z-10">
+                <div class="flex items-center space-x-3">
+                    <div id="away-logo-box" class="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-black title-font">AWY</div>
+                    <div>
+                        <h1 id="away-name" class="title-font text-xl md:text-3xl font-black">AWAY TEAM</h1>
+                        <p id="away-record" class="text-xs text-gray-300">0-0</p>
+                    </div>
+                </div>
+                <div id="away-poss" class="hidden bg-yellow-400 text-black px-2 py-0.5 rounded-full font-bold text-xs title-font animate-bounce">🏈 POSS</div>
+            </div>
+            <div class="flex flex-col items-center justify-center z-10 my-auto">
+                <div id="away-score" class="led-font text-[6rem] md:text-[14rem] font-bold">0</div>
+            </div>
+            <div class="z-10 flex justify-center space-x-2">
+                <button onclick="modifyScore('away', 6)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+6 TD</button>
+                <button onclick="modifyScore('away', 3)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+3 FG</button>
+                <button onclick="modifyScore('away', 1)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+1 XP</button>
+                <button onclick="modifyScore('away', -1)" class="px-2 py-1.5 bg-black/30 rounded-xl text-red-300 text-xs">-1</button>
+            </div>
+        </div>
+
+        <!-- Home Side -->
+        <div id="home-side" class="flex-1 h-1/2 md:h-full bg-[#CC0000] flex flex-col justify-between p-4 md:p-8 relative overflow-hidden transition-colors duration-500">
+            <div id="home-bg-watermark" class="absolute -bottom-10 -right-10 text-white/5 title-font text-[12rem] md:text-[24rem] font-black pointer-events-none">HOME</div>
+            <div class="flex justify-between items-center z-10">
+                <div id="home-poss" class="hidden bg-yellow-400 text-black px-2 py-0.5 rounded-full font-bold text-xs title-font animate-bounce">🏈 POSS</div>
+                <div class="text-right">
+                    <h1 id="home-name" class="title-font text-xl md:text-3xl font-black">HOME TEAM</h1>
+                    <p id="home-record" class="text-xs text-gray-300">0-0</p>
+                </div>
+                <div id="home-logo-box" class="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-black title-font">HME</div>
+            </div>
+            <div class="flex flex-col items-center justify-center z-10 my-auto">
+                <div id="home-score" class="led-font text-[6rem] md:text-[14rem] font-bold">0</div>
+            </div>
+            <div class="z-10 flex justify-center space-x-2">
+                <button onclick="modifyScore('home', 6)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+6 TD</button>
+                <button onclick="modifyScore('home', 3)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+3 FG</button>
+                <button onclick="modifyScore('home', 1)" class="px-3 py-1.5 bg-white/20 rounded-xl font-bold title-font text-xs">+1 XP</button>
+                <button onclick="modifyScore('home', -1)" class="px-2 py-1.5 bg-black/30 rounded-xl text-red-300 text-xs">-1</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Manual Control Panel View (URL Hash #manual) -->
+    <main id="view-manual" class="hidden flex-1 w-full h-full flex flex-col pt-16 pb-6 px-4 md:px-12 bg-gray-950 overflow-y-auto">
+        <div class="max-w-4xl mx-auto w-full bg-gray-900 border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <div>
+                    <h1 class="title-font text-xl md:text-2xl font-bold text-yellow-400">🎮 Remote Control Panel</h1>
+                    <p class="text-xs text-gray-400">Make manual adjustments. Changes broadcast instantly to the TV display.</p>
+                </div>
+                <a href="#" onclick="switchView('display')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs title-font transition">📺 View Display</a>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="setControlMode('auto')" id="ctrl-mode-auto" class="py-3 rounded-2xl border border-blue-500 font-bold title-font text-sm bg-blue-600/30 text-white transition">Auto-Sync ESPN API</button>
+                <button onclick="setControlMode('manual')" id="ctrl-mode-manual" class="py-3 rounded-2xl border border-white/20 font-bold title-font text-sm bg-black/50 text-gray-400 transition">Manual Control Mode</button>
+            </div>
+
+            <!-- Scores & Teams -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Away Team Controls -->
+                <div class="bg-black/40 border border-white/10 rounded-2xl p-5 space-y-4">
+                    <h3 class="title-font font-bold text-blue-400 text-sm uppercase">Away Team</h3>
+                    <div>
+                        <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Name</label>
+                        <input type="text" id="manual-away-name" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Score</label>
+                            <input type="number" id="manual-away-score" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-lg">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Color (Hex)</label>
+                            <input type="text" id="manual-away-color" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Home Team Controls -->
+                <div class="bg-black/40 border border-white/10 rounded-2xl p-5 space-y-4">
+                    <h3 class="title-font font-bold text-red-400 text-sm uppercase">Home Team</h3>
+                    <div>
+                        <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Name</label>
+                        <input type="text" id="manual-home-name" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Score</label>
+                            <input type="number" id="manual-home-score" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-lg">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Color (Hex)</label>
+                            <input type="text" id="manual-home-color" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Clock & Possession -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Quarter / Period</label>
+                    <input type="text" id="manual-quarter" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-sm">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Game Clock</label>
+                    <input type="text" id="manual-clock" oninput="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-center text-sm">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase text-gray-400 font-bold mb-1">Possession</label>
+                    <select id="manual-poss" onchange="pushManualChanges()" class="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white font-bold text-sm">
+                        <option value="away">Away Team</option>
+                        <option value="home">Home Team</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Display Bar -->
+    <footer class="absolute bottom-0 left-0 w-full z-20 flex justify-center items-center py-2 bg-black/80 backdrop-blur-md border-t border-white/10">
+        <div class="flex space-x-4 title-font text-xs font-bold text-gray-300">
+            <div>DOWN: <span id="down-display" class="text-yellow-400">--</span></div>
+            <div>DIST: <span id="dist-display" class="text-white">--</span></div>
+            <div>BALL ON: <span id="ball-on" class="text-cyan-400">--</span></div>
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-white/20 rounded-3xl p-6 max-w-md w-full text-white">
+            <h2 class="title-font text-lg font-bold mb-4">Select Live Game</h2>
+            <select id="live-games-select" class="w-full bg-black/50 border border-white/20 rounded-xl px-3 py-2 text-white text-xs mb-4">
+                <option value="">Loading Games...</option>
+            </select>
+            <div class="flex space-x-2">
+                <button onclick="loadSelectedGame()" class="flex-1 py-2 bg-green-600 rounded-xl font-bold text-xs">Monitor Game</button>
+                <button onclick="closeSettings()" class="px-4 py-2 bg-gray-700 rounded-xl font-bold text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            scores: { away: 0, home: 0 },
+            teamNames: { away: 'AWAY', home: 'HOME' },
+            teamColors: { away: '#002E5D', home: '#CC0000' },
+            records: { away: '0-0', home: '0-0' },
+            quarter: '4TH QTR',
+            clock: '00:00',
+            stadium: 'STADIUM',
+            down: '--',
+            dist: '--',
+            ballOn: '--',
+            currentPossession: 'away',
+            isAutoSync: true,
+            isAudioEnabled: false,
+            controlMode: 'auto'
+        };
+
+        let wakeLock = null, selectedGameId = null, availableGames = [];
+
+        // BroadcastChannel for instant multi-tab / cross-window / TV synchronization
+        const channel = new BroadcastChannel('scoreboard_sync');
+
+        channel.onmessage = (event) => {
+            state = event.data;
+            render();
+        };
+
+        function broadcastState() {
+            channel.postMessage(state);
+        }
+
+        function switchView(view) {
+            if (view === 'manual') {
+                window.location.hash = 'manual';
+                document.getElementById('view-display').classList.add('hidden');
+                document.getElementById('view-manual').classList.remove('hidden');
+                populateManualInputs();
+            } else {
+                window.location.hash = '';
+                document.getElementById('view-manual').classList.add('hidden');
+                document.getElementById('view-display').classList.remove('hidden');
+            }
+        }
+
+        window.addEventListener('hashchange', () => {
+            if (window.location.hash === '#manual') switchView('manual');
+            else switchView('display');
+        });
+
+        window.addEventListener('load', () => {
+            if (window.location.hash === '#manual') switchView('manual');
+        });
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try { wakeLock = await navigator.wakeLock.request('screen'); document.getElementById('wakelock-btn').innerText = "💡 WAKE ON"; } catch (e) {}
+            }
+        }
+        function toggleWakeLock() {
+            if (wakeLock) { wakeLock.release(); wakeLock = null; document.getElementById('wakelock-btn').innerText = "💡 WAKE OFF"; } else { requestWakeLock(); }
+        }
+
+        function announceScore() {
+            if (!state.isAudioEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const text = `${state.teamNames.home} ${state.scores.home}, ${state.teamNames.away} ${state.scores.away}. ${state.currentPossession === 'away' ? state.teamNames.away : state.teamNames.home} has the ball.`;
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        }
+
+        function toggleAudio() {
+            state.isAudioEnabled = !state.isAudioEnabled;
+            document.getElementById('audio-btn').innerText = state.isAudioEnabled ? "🔊 VOICE ON" : "🔇 VOICE OFF";
+            if (state.isAudioEnabled) { requestWakeLock(); announceScore(); } else { window.speechSynthesis.cancel(); }
+            broadcastState();
+        }
+
+        function toggleSync() {
+            state.isAutoSync = !state.isAutoSync;
+            document.getElementById('sync-btn').innerText = state.isAutoSync ? "SYNC ON" : "SYNC OFF";
+            document.getElementById('sync-badge').innerText = state.isAutoSync ? "LIVE API" : "MANUAL";
+            broadcastState();
+        }
+
+        function setControlMode(mode) {
+            state.controlMode = mode;
+            if (mode === 'auto') {
+                state.isAutoSync = true;
+                document.getElementById('ctrl-mode-auto').className = "py-3 rounded-2xl border border-blue-500 font-bold title-font text-sm bg-blue-600/30 text-white transition";
+                document.getElementById('ctrl-mode-manual').className = "py-3 rounded-2xl border border-white/20 font-bold title-font text-sm bg-black/50 text-gray-400 transition";
+            } else {
+                state.isAutoSync = false;
+                document.getElementById('ctrl-mode-manual').className = "py-3 rounded-2xl border border-red-500 font-bold title-font text-sm bg-red-600/30 text-white transition";
+                document.getElementById('ctrl-mode-auto').className = "py-3 rounded-2xl border border-white/20 font-bold title-font text-sm bg-black/50 text-gray-400 transition";
+            }
+            broadcastState();
+        }
+
+        function render() {
+            document.getElementById('stadium-display').innerText = state.stadium;
+            document.getElementById('quarter-display').innerText = state.quarter;
+            document.getElementById('game-clock').innerText = state.clock;
+
+            document.getElementById('away-name').innerText = state.teamNames.away;
+            document.getElementById('away-score').innerText = state.scores.away;
+            document.getElementById('away-record').innerText = state.records.away;
+            document.getElementById('away-side').style.backgroundColor = state.teamColors.away;
+            document.getElementById('away-bg-watermark').innerText = state.teamNames.away;
+
+            document.getElementById('home-name').innerText = state.teamNames.home;
+            document.getElementById('home-score').innerText = state.scores.home;
+            document.getElementById('home-record').innerText = state.records.home;
+            document.getElementById('home-side').style.backgroundColor = state.teamColors.home;
+            document.getElementById('home-bg-watermark').innerText = state.teamNames.home;
+
+            document.getElementById('down-display').innerText = state.down;
+            document.getElementById('dist-display').innerText = state.dist;
+            document.getElementById('ball-on').innerText = state.ballOn;
+
+            if (state.currentPossession === 'away') {
+                document.getElementById('away-poss').classList.remove('hidden');
+                document.getElementById('home-poss').classList.add('hidden');
+            } else {
+                document.getElementById('home-poss').classList.remove('hidden');
+                document.getElementById('away-poss').classList.add('hidden');
+            }
+        }
+
+        function populateManualInputs() {
+            document.getElementById('manual-away-name').value = state.teamNames.away;
+            document.getElementById('manual-away-score').value = state.scores.away;
+            document.getElementById('manual-away-color').value = state.teamColors.away;
+            document.getElementById('manual-home-name').value = state.teamNames.home;
+            document.getElementById('manual-home-score').value = state.scores.home;
+            document.getElementById('manual-home-color').value = state.teamColors.home;
+            document.getElementById('manual-quarter').value = state.quarter;
+            document.getElementById('manual-clock').value = state.clock;
+            document.getElementById('manual-poss').value = state.currentPossession;
+        }
+
+        function pushManualChanges() {
+            state.teamNames.away = document.getElementById('manual-away-name').value;
+            state.scores.away = parseInt(document.getElementById('manual-away-score').value) || 0;
+            state.teamColors.away = document.getElementById('manual-away-color').value;
+            state.teamNames.home = document.getElementById('manual-home-name').value;
+            state.scores.home = parseInt(document.getElementById('manual-home-score').value) || 0;
+            state.teamColors.home = document.getElementById('manual-home-color').value;
+            state.quarter = document.getElementById('manual-quarter').value;
+            state.clock = document.getElementById('manual-clock').value;
+            state.currentPossession = document.getElementById('manual-poss').value;
+
+            render();
+            broadcastState();
+        }
+
+        function modifyScore(team, pts) {
+            let oldH = state.scores.home, oldA = state.scores.away;
+            state.scores[team] = Math.max(0, state.scores[team] + pts);
+            render();
+            broadcastState();
+            if (oldH !== state.scores.home || oldA !== state.scores.away) announceScore();
+        }
+
+        async function fetchLiveScores() {
+            if (!state.isAutoSync || state.controlMode === 'manual') return;
+            try {
+                const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80');
+                const data = await res.json();
+                availableGames = [];
+                let target = null;
+                if (data && data.events) {
+                    data.events.forEach(ev => {
+                        const comp = ev.competitions[0];
+                        const a = comp.competitors.find(c => c.homeAway === 'away').team.abbreviation;
+                        const h = comp.competitors.find(c => c.homeAway === 'home').team.abbreviation;
+                        availableGames.push({ id: ev.id, label: `${a} @ ${h}`, event: ev });
+                        if (selectedGameId && ev.id === selectedGameId) target = ev;
+                        else if (!selectedGameId && !target) target = ev;
+                    });
+                }
+                const sel = document.getElementById('live-games-select');
+                if (sel) {
+                    sel.innerHTML = '<option value="">-- Select Game --</option>';
+                    availableGames.forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g.id; opt.innerText = g.label;
+                        if (selectedGameId === g.id) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                }
+                if (target) updateFromEvent(target);
+            } catch (err) {}
+        }
+
+        function loadSelectedGame() {
+            const id = document.getElementById('live-games-select').value;
+            if (id) { selectedGameId = id; const g = availableGames.find(x => x.id === id); if (g) updateFromEvent(g.event); closeSettings(); }
+        }
+
+        function updateFromEvent(ev) {
+            state.quarter = ev.status.type.detail || 'LIVE';
+            state.clock = ev.status.displayClock || '00:00';
+            const comp = ev.competitions[0];
+            if (comp.venue) state.stadium = comp.venue.fullName.toUpperCase();
+            
+            let oldH = state.scores.home, oldA = state.scores.away, changed = false;
+            let possId = comp.situation ? comp.situation.possession : null;
+
+            comp.competitors.forEach(c => {
+                const isH = c.homeAway === 'home';
+                const score = parseInt(c.score || '0');
+                const abbrev = c.team.abbreviation;
+                const rec = c.records ? c.records[0].summary : '0-0';
+                const color = c.team.color ? `#${c.team.color}` : (isH ? '#CC0000' : '#002E5D');
+                
+                if (isH) {
+                    if (state.scores.home !== score) changed = true;
+                    state.scores.home = score; state.teamNames.home = abbrev; state.teamColors.home = color; state.records.home = rec;
+                    if (possId && c.id === possId) state.currentPossession = 'home';
+                } else {
+                    if (state.scores.away !== score) changed = true;
+                    state.scores.away = score; state.teamNames.away = abbrev; state.teamColors.away = color; state.records.away = rec;
+                    if (possId && c.id === possId) state.currentPossession = 'away';
+                }
+            });
+
+            if (comp.situation) {
+                state.down = (comp.situation.downSummary || `${comp.situation.down || ''}`).toUpperCase();
+                state.dist = comp.situation.distance || '--';
+                state.ballOn = comp.situation.yardLine || '--';
+            }
+
+            render();
+            broadcastState();
+            if (changed && (oldH !== state.scores.home || oldA !== state.scores.away)) announceScore();
+        }
+
+        function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        fetchLiveScores();
+        setInterval(fetchLiveScores, 10000);
+    </script>
+</body>
+</html>
